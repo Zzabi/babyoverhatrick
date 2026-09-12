@@ -163,7 +163,15 @@ Test files live in `backend/tests/`. Coverage must remain above 90%.
 
 ## Deployment
 
-See [docs/INFRA.md](./docs/INFRA.md) for the full deployment guide covering Render (backend), Vercel (frontend), and Cloudflare R2 (image storage).
+| Layer | Platform | Notes |
+|---|---|---|
+| Backend | Render (web service) | Python 3.12 runtime; start command `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+| Frontend | Vercel | Root directory `frontend`; Vite preset |
+| Database | Render Postgres | Managed PostgreSQL 16 |
+| Cache | Render Redis | Used for session storage |
+| Images | Cloudflare R2 | S3-compatible; same client code as local MinIO |
+
+Configure environment variables from `.env.example` on each platform. Run `python -m alembic upgrade head` on first backend deploy to create the schema. See [SETUP.md](./SETUP.md) for the full environment variable reference.
 
 ---
 

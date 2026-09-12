@@ -126,7 +126,7 @@ babyoverhatrick/
 │   │   │   └── seed.py         # Seed the database with initial cricketer/question data.
 │   │   └── share_cards/        # STUB — Pillow-based share card image generation (not implemented).
 │   └── requirements.txt
-├── docs/                       # Developer reference docs. Not committed to the repo.
+├── .claude/agents/             # Claude Code skill definitions (e.g. add-game.md).
 ├── frontend/
 │   └── src/
 │       ├── components/         # Shared UI components:
@@ -240,7 +240,32 @@ Test files live in `backend/tests/`. Coverage must remain above 90%. Every new b
 | Database | Render PostgreSQL or managed Postgres |
 | Redis | Render Redis |
 
-See `INFRA.md` (in `docs/`, not committed) for the full deployment procedure, environment variable setup on each platform, and free-tier constraints.
+### Deploying
+
+Each layer is deployed independently. All environment variables from `.env.example` must be set on the respective platform.
+
+**Backend — Render**
+1. Create a new **Web Service** on Render, connected to this repo.
+2. Runtime: Python 3.12. Build command: `pip install -r requirements.txt`. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+3. Add all backend env vars from `.env.example` in the Render dashboard (Environment section).
+4. Run migrations on first deploy: add a one-off job `python -m alembic upgrade head` or run it from the Render shell.
+
+**Frontend — Vercel**
+1. Import the repo into Vercel. Set the root directory to `frontend`.
+2. Framework preset: Vite. Build command: `pnpm build`. Output directory: `dist`.
+3. Add `VITE_CLERK_PUBLISHABLE_KEY` and `VITE_API_URL` (the Render backend URL) as environment variables.
+
+**Database — Render Postgres**
+Create a managed PostgreSQL 16 database on Render. Copy the internal connection string as `DATABASE_URL` on the backend service.
+
+**Redis — Render Redis**
+Create a Render Redis instance. Copy the internal Redis URL as `REDIS_URL` on the backend service.
+
+**Object storage — Cloudflare R2**
+1. Create an R2 bucket in the Cloudflare dashboard.
+2. Create an API token with R2 read/write access.
+3. Set `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, and `STORAGE_PUBLIC_URL` on the backend service.
+4. No code changes are required — the same S3-compatible client used locally works with R2.
 
 ---
 

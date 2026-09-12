@@ -337,9 +337,9 @@ You can make this more granular as the team grows:
 # Frontend
 /frontend/ @zzabi
 
-# Infrastructure and docs
+# Infrastructure
 /docker-compose.yml @zzabi
-/docs/ @zzabi
+/.env.example @zzabi
 ```
 
 ---
