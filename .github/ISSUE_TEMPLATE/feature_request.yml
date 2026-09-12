@@ -1,0 +1,65 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+labels: ["enhancement", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea? We'd love to hear it. Describe the use case clearly — the more context you give, the easier it is to prioritise.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation that led to this idea. Focus on the problem, not the solution.
+      placeholder: "As a player, I can't tell which questions I've already answered across sessions, so I keep seeing repeats even after refreshing."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the feature you'd like
+      description: What would the ideal solution look like from the user's perspective?
+      placeholder: "A progress tracker that shows 'X of Y questions answered' across all sessions."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this relate to?
+      options:
+        - Gameplay (Guess the Cricketer)
+        - Gameplay (Unscramble the Name)
+        - New game type
+        - Leaderboard
+        - Admin panel / Content management
+        - Authentication / Accounts
+        - Performance
+        - Mobile experience
+        - Developer tooling / Tests
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Any other approaches or workarounds you've thought about?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How important is this to you?
+      options:
+        - Nice to have
+        - Would significantly improve my experience
+        - Blocking me from using the platform
+    validations:
+      required: true

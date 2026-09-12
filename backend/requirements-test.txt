@@ -1,0 +1,5 @@
+# Test dependencies — install with: pip install -r requirements-test.txt
+# Requires: requirements.txt already installed
+
+pytest==8.3.3
+pytest-cov==5.0.0

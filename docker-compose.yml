@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Local development infrastructure
+# Services: PostgreSQL, Redis, MinIO (S3-compatible object storage), pgAdmin
+#
+# Usage:
+#   docker compose up -d                    → start everything
+#   docker compose up -d postgres redis     → start without MinIO + pgAdmin
+#   docker compose down                     → stop (data preserved)
+#   docker compose down -v                  → stop + wipe all data (full reset)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: gameplatform_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gameplatform}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-gameplatform_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gameplatform}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: gameplatform_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-localpassword}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-localpassword}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: quay.io/minio/minio:latest   # quay.io — no Docker Hub auth needed
+    container_name: gameplatform_minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # S3 API  →  used by FastAPI
+      - "9001:9001"   # Web UI  →  http://localhost:9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gameplatform_pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@local.dev}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-localpassword}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  pgadmin_data:

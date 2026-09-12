@@ -1,0 +1,25 @@
+# CODEOWNERS — auto-request reviews from these people when their areas are touched
+#
+# Format: <file-pattern> <@github-username>
+# Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+*                           @zzabi
+
+# Backend
+/backend/                   @zzabi
+/backend/alembic/           @zzabi
+
+# Frontend
+/frontend/                  @zzabi
+
+# Infrastructure / config
+/docker-compose.yml         @zzabi
+/.env.example               @zzabi
+
+# Documentation
+/CLAUDE.md                  @zzabi
+/README.md                  @zzabi
+/SETUP.md                   @zzabi
+/CONTRIBUTING.md            @zzabi
+/docs/                      @zzabi
