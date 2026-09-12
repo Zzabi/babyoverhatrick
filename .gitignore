@@ -242,7 +242,8 @@ frontend/dist/
 # ── Internal / local-only files (not for the public repo) ────────────────────
 # docs/ contains raw planning docs, architecture sessions, and machine-specific notes
 docs/
-# Claude Code agent memory and session data
-.claude/
+# Claude Code: exclude session data and memory, but keep agent skill definitions
+.claude/*
+!.claude/agents/
 # Design files (work locally, not needed in the repo)
 *.drawio
