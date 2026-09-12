@@ -24,7 +24,7 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 - **Daily challenge** — dedicated endpoint; question set rotates daily.
 - **Admin CMS** — HTTP Basic Auth-protected `/admin` route in the frontend and SQLAdmin at the backend `/admin` endpoint. Admins can manage question sets, cricketers, and questions (add, edit, delete).
 - **Auth** — Clerk (JWT RS256) for players. HTTP Basic Auth (timing-safe comparison) for the admin content API.
-- **Object storage** — MinIO locally, Cloudflare R2 in production (same S3-compatible API). UUID filenames for images prevent answer inference from URLs.
+- **Object storage** — MinIO (local dev). S3-compatible client; swap endpoint and credentials for any S3-compatible service in production. UUID filenames for images prevent answer inference from URLs.
 
 ### Stubs / not yet implemented
 
@@ -46,7 +46,7 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 | ORM | SQLAlchemy (sync) |
 | Migrations | Alembic |
 | Cache / sessions | Redis 7 |
-| Object storage | MinIO (local) / Cloudflare R2 (prod) |
+| Object storage | MinIO (local dev, S3-compatible) |
 | Auth | Clerk JWT RS256 dependency + HTTP Basic Auth for admin |
 | Config | pydantic-settings (reads from `.env`) |
 | Tests | pytest + pytest-cov |
@@ -79,9 +79,6 @@ Multi-word names are scrambled word-by-word, with a space sentinel character mar
 | Styling | Tailwind v4 |
 | Components | shadcn/ui + lucide-react |
 
-**Why MinIO locally / R2 in production?**
-Both expose an S3-compatible API. The backend uses the same boto3/httpx storage client in both environments — only the endpoint URL, access key, and bucket name change. This eliminates any environment-specific code paths in the application layer.
-
 ### Infrastructure (local dev)
 
 All services run via Docker Compose:
@@ -92,8 +89,6 @@ All services run via Docker Compose:
 | Redis | redis:7-alpine | 6379 |
 | MinIO | minio/minio | 9000 (API), 9001 (console) |
 | pgAdmin | dpage/pgadmin4 | 5050 |
-
-In production: backend on Render, frontend on Vercel, images on Cloudflare R2.
 
 ---
 
@@ -111,7 +106,7 @@ babyoverhatrick/
 │   │   │   ├── config.py       # pydantic-settings Settings class. All env vars land here.
 │   │   │   ├── db.py           # SQLAlchemy engine + session factory + get_db dependency.
 │   │   │   ├── redis.py        # Redis client factory.
-│   │   │   └── storage.py      # S3-compatible storage client (MinIO / R2).
+│   │   │   └── storage.py      # S3-compatible storage client.
 │   │   ├── daily_challenge/    # Daily challenge selection logic.
 │   │   ├── models/             # SQLAlchemy ORM models (Cricketer, Question, Session, Answer, …).
 │   │   ├── routers/            # One file per API domain:
@@ -165,7 +160,7 @@ All variables are consumed by `backend/app/core/config.py` (backend) or by Vite 
 |---|---|---|
 | `DATABASE_URL` | Backend | PostgreSQL connection string (`postgresql://...`) |
 | `REDIS_URL` | Backend | Redis connection string (`redis://...`) |
-| `STORAGE_ENDPOINT` | Backend | MinIO / R2 endpoint URL |
+| `STORAGE_ENDPOINT` | Backend | S3-compatible object storage endpoint URL |
 | `STORAGE_ACCESS_KEY` | Backend | S3 access key |
 | `STORAGE_SECRET_KEY` | Backend | S3 secret key |
 | `STORAGE_BUCKET` | Backend | S3 bucket name for cricketer images |
@@ -232,40 +227,10 @@ Test files live in `backend/tests/`. Coverage must remain above 90%. Every new b
 
 ## Deployment
 
-| Layer | Host |
-|---|---|
-| Backend | Render (web service, Python runtime) |
-| Frontend | Vercel |
-| Images | Cloudflare R2 (S3-compatible, same client code as MinIO) |
-| Database | Render PostgreSQL or managed Postgres |
-| Redis | Render Redis |
+> **Not yet configured.** Cloud hosting and object storage have not been set up.
+> A deployment guide will be added to the repo once the production environment is live.
 
-### Deploying
-
-Each layer is deployed independently. All environment variables from `.env.example` must be set on the respective platform.
-
-**Backend — Render**
-1. Create a new **Web Service** on Render, connected to this repo.
-2. Runtime: Python 3.12. Build command: `pip install -r requirements.txt`. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-3. Add all backend env vars from `.env.example` in the Render dashboard (Environment section).
-4. Run migrations on first deploy: add a one-off job `python -m alembic upgrade head` or run it from the Render shell.
-
-**Frontend — Vercel**
-1. Import the repo into Vercel. Set the root directory to `frontend`.
-2. Framework preset: Vite. Build command: `pnpm build`. Output directory: `dist`.
-3. Add `VITE_CLERK_PUBLISHABLE_KEY` and `VITE_API_URL` (the Render backend URL) as environment variables.
-
-**Database — Render Postgres**
-Create a managed PostgreSQL 16 database on Render. Copy the internal connection string as `DATABASE_URL` on the backend service.
-
-**Redis — Render Redis**
-Create a Render Redis instance. Copy the internal Redis URL as `REDIS_URL` on the backend service.
-
-**Object storage — Cloudflare R2**
-1. Create an R2 bucket in the Cloudflare dashboard.
-2. Create an API token with R2 read/write access.
-3. Set `STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`, `STORAGE_BUCKET`, and `STORAGE_PUBLIC_URL` on the backend service.
-4. No code changes are required — the same S3-compatible client used locally works with R2.
+The application is designed to run on any platform that supports Python 3.12 (backend), a Node.js build step (frontend), PostgreSQL 16, Redis 7, and an S3-compatible object storage endpoint. All connection details are read from environment variables — see `.env.example` for the full list.
 
 ---
 

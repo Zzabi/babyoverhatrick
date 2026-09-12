@@ -61,7 +61,7 @@ DEV_USER_EMAIL=dev@local.test
 
 # ── Admin panel credentials ───────────────────────────────────────────────────
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=changeme    # change this before any real deployment
+ADMIN_PASSWORD=changeme
 ```
 
 All other values (database URL, Redis URL, MinIO credentials) are pre-configured for the Docker Compose setup and do not need to change for local development.
@@ -308,17 +308,6 @@ Run `python -m alembic upgrade head` again. If there are conflicts, run `python 
 | `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key for the frontend |
 
 ---
-
-## Production Deployment
-
-The production stack runs on:
-- Backend on Render
-- Frontend on Vercel
-- PostgreSQL on Render managed Postgres
-- Redis on Render Redis
-- Images on Cloudflare R2
-
-Configure the environment variables from `.env.example` on each platform. All application code is the same — only the connection strings change.
 
 ---
 
