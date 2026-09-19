@@ -7,7 +7,7 @@ export function BrandHeader({ streak = 0 }: { streak?: number }) {
   const { openSignIn, signOut } = useClerk();
 
   return (
-    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 pt-5 pb-3 md:px-6 md:pt-8">
+    <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 pt-5 pb-3 md:hidden">
       <Link to="/" className="flex min-w-0 items-center gap-2">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground">
           <span className="font-display text-lg leading-none">bh</span>
