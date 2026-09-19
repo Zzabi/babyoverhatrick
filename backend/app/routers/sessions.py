@@ -171,8 +171,20 @@ def start_session(
     # Filter out questions the player has already seen this browser session
     exclude_set = set(body.exclude_ids or [])
     fresh_questions = [q for q in all_questions if q.id not in exclude_set]
-    # If we've exhausted all fresh questions, cycle back to the full pool
-    pool = fresh_questions if fresh_questions else all_questions
+
+    # If the player has excluded EVERY available question, signal exhaustion —
+    # don't loop back silently. Returning empty lets the frontend show
+    # "you've played everything, come back later".
+    if not fresh_questions and exclude_set:
+        return {
+            "session_id": 0,
+            "game_slug": body.game_slug,
+            "total_questions": 0,
+            "questions": [],
+            "exhausted": True,
+        }
+
+    pool = fresh_questions
 
     count = min(settings.questions_per_session, len(pool))
     picked = random.sample(pool, count)

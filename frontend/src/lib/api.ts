@@ -212,6 +212,7 @@ export type SessionStartResponse = {
   game_slug: string;
   total_questions: number;
   questions: SessionQuestion[];
+  exhausted?: boolean;  // true when player has seen every available question
 };
 
 export type AnswerBody = {

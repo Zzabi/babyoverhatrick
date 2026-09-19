@@ -104,7 +104,7 @@ function UnscrambleGame() {
         setSessionId(res.session_id);
         setQuestions(res.questions);
         if (res.questions.length === 0) {
-          setError("No questions yet — check back soon!");
+          setError(res.exhausted ? "exhausted" : "No questions yet — check back soon!");
           setPhase("error");
         } else {
           setPhase("playing");
@@ -276,12 +276,33 @@ function UnscrambleGame() {
   }
 
   if (phase === "error") {
+    const isExhausted = error === "exhausted";
     return (
       <main className="flex min-h-screen items-center justify-center bg-background px-4">
         <div className="max-w-sm text-center">
-          <p className="text-2xl">🏏</p>
-          <h2 className="mt-3 font-display text-2xl">{error}</h2>
-          <Link to="/" className="mt-4 inline-block text-sm font-semibold underline">Back to games</Link>
+          <p className="text-2xl">{isExhausted ? "🎉" : "🏏"}</p>
+          <h2 className="mt-3 font-display text-2xl">
+            {isExhausted ? "You've played everything!" : error}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {isExhausted ? "More questions are on their way. Come back soon!" : ""}
+          </p>
+          <div className="mt-5 flex flex-col gap-2">
+            {isExhausted && (
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem(`played_qids_${GAME_SLUG}`);
+                  startGame(selectedSetId);
+                }}
+                className="rounded-xl bg-primary px-6 py-3 font-display text-lg text-primary-foreground"
+              >
+                Play Again
+              </button>
+            )}
+            <Link to="/" className="text-sm font-semibold underline text-muted-foreground">
+              Back to games
+            </Link>
+          </div>
         </div>
       </main>
     );

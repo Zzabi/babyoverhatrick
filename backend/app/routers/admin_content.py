@@ -374,10 +374,15 @@ def update_question(
     return {
         "id": q.id,
         "type": q.question_type,
+        "set_id": q.set_id,
+        "image_url": q.image_url,
+        "question_text": q.question_text,
         "correct_answer": correct,
-        "aliases": q.accepted_aliases,
+        "aliases": q.accepted_aliases or [],
         "difficulty": q.difficulty,
         "is_active": q.is_active,
+        "explanation": q.explanation,
+        "points": q.points,
     }
 
 
