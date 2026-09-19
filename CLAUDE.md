@@ -64,6 +64,53 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 
 ---
 
+## Rules for Claude Code Agents
+
+> These rules apply to every Claude Code agent working in this repository, including the primary session.
+
+### ⚠️ NEVER push directly to `main`
+
+`main` is the production branch. Direct pushes to `main` bypass review and trigger an immediate production deployment. **Do not push to `main` under any circumstances.**
+
+### Always work on `dev` (or a feature branch off `dev`)
+
+Before making any changes:
+```bash
+git checkout dev
+git pull origin dev
+```
+
+If the work is a distinct feature or fix, create a feature branch:
+```bash
+git checkout -b feat/short-description dev
+```
+
+Push all changes to `dev` or the feature branch:
+```bash
+git push origin dev          # or: git push origin feat/short-description
+```
+
+### After pushing, ask the user to merge
+
+After every push, end with a message like:
+
+> Changes are on `dev`. When you're ready to deploy to production, open a Pull Request from `dev` → `main` on GitHub and merge it there.
+
+Do not merge `dev` → `main` yourself. The human reviews and merges.
+
+### Checking which branch you're on
+
+```bash
+git branch --show-current
+```
+
+If the output is `main`, switch to `dev` before touching any files:
+```bash
+git checkout dev
+```
+
+---
+
 ## Stack Deep-Dive
 
 ### Backend
