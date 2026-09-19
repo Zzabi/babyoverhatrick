@@ -1,11 +1,10 @@
 import { Link } from "@tanstack/react-router";
-import { Home, Gamepad2, Trophy, UserRound } from "lucide-react";
+import { Home, Gamepad2, Trophy } from "lucide-react";
 
 const items = [
   { to: "/", label: "Home", icon: Home },
   { to: "/games", label: "Games", icon: Gamepad2 },
   { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
-  { to: "/signin", label: "Sign in", icon: UserRound },
 ] as const;
 
 export function BottomNav() {
