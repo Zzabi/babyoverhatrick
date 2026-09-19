@@ -16,6 +16,19 @@ Follow us on Instagram: [@babyoverhattrick](https://www.instagram.com/babyoverha
 
 ---
 
+## Live
+
+| | URL |
+|---|---|
+| **App** | https://babyoverhatrick-pink.vercel.app |
+| **API** | https://babyoverhatrick.onrender.com |
+| **API docs** | https://babyoverhatrick.onrender.com/docs |
+| **Admin panel** | https://babyoverhatrick-pink.vercel.app/admin |
+
+> The backend runs on Render's free tier and sleeps after 15 minutes of inactivity. The first request after a sleep takes ~30 seconds to respond.
+
+---
+
 ## Features
 
 - **Two game modes** (Phase 1): Guess the Cricketer and Unscramble the Name
@@ -38,11 +51,32 @@ _Screenshots coming soon._
 
 ## Tech Stack
 
+### Application
+
 | Layer | Technologies |
 |---|---|
-| **Backend** | Python 3.12, FastAPI, SQLAlchemy (sync), Alembic, PostgreSQL 16, Redis 7, pydantic-settings |
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy (sync), Alembic, pydantic-settings |
 | **Frontend** | Vite 8, React 19, TypeScript 5.8, TanStack Router v1, TanStack Query v5, Clerk v5, Tailwind v4, shadcn/ui |
-| **Infrastructure** | Docker Compose (local dev), MinIO (local S3-compatible object storage) |
+
+### Cloud (production)
+
+| Concern | Service | Why |
+|---|---|---|
+| **Frontend hosting** | [Vercel](https://vercel.com) | Zero-config Vite deploys; previews per branch; global CDN |
+| **Backend hosting** | [Render](https://render.com) | Simple Python web service; auto-deploys from `main` |
+| **Database** | [Neon](https://neon.tech) | Serverless PostgreSQL 16; permanent free tier (unlike Render Postgres which expires after 90 days) |
+| **Cache / sessions** | [Upstash](https://upstash.com) | Serverless Redis; permanent free tier; TLS by default |
+| **Image storage** | [Cloudinary](https://cloudinary.com) | Simple image upload API; no bucket config needed; generous free tier |
+| **Auth** | [Clerk](https://clerk.com) | Handles token rotation, JWKS, device sessions, and social login out of the box |
+
+### Local development
+
+| Service | Image | Port |
+|---|---|---|
+| PostgreSQL | postgres:16-alpine | 5432 |
+| Redis | redis:7-alpine | 6379 |
+| MinIO (S3-compatible) | minio/minio | 9000 (API), 9001 (console) |
+| pgAdmin | dpage/pgadmin4 | 5050 |
 
 ---
 
@@ -103,6 +137,21 @@ pnpm dev
 
 ---
 
+## Branching Strategy
+
+| Branch | Purpose | Triggers deploy? |
+|---|---|---|
+| `main` | Production — always deployable | ✅ Vercel (production URL) + Render |
+| `dev` | Integration — work branches merge here first | Vercel preview only |
+| `feat/*`, `fix/*`, `chore/*` | Individual tasks — branch off `dev` | Vercel preview only |
+
+**Day-to-day workflow:**
+1. Branch off `dev`: `git checkout -b feat/my-thing dev`
+2. Open a PR → `dev` to review and integrate
+3. When ready to release: open a PR → `dev` → `main`. Merging this triggers production deploy.
+
+---
+
 ## Game Flows
 
 ### Guess the Cricketer
@@ -117,24 +166,24 @@ The player is shown scrambled letter tiles representing a cricketer's name. Each
 
 ## Admin Panel
 
-The admin panel is accessible at `/admin`. It is protected by HTTP Basic Auth (credentials set via `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env`).
+The admin panel is accessible at `/admin` on the frontend. It is protected by HTTP Basic Auth (credentials set via `ADMIN_USERNAME` and `ADMIN_PASSWORD`).
 
 Through the admin panel you can:
 
-- Add, edit, and delete cricketers (including uploading images to object storage)
+- Add, edit, and delete cricketers (including uploading images to Cloudinary)
 - Create and manage question sets for each game type
 - Add, edit, and delete individual questions
 
-A SQLAdmin interface is also served by the backend at `/admin` (same credentials), providing a direct database-level view of all models.
+A raw SQLAdmin interface is also served by the backend at `https://babyoverhatrick.onrender.com/admin` (same credentials), providing a direct database-level view of all models — useful for inspecting sessions, answers, and raw data.
 
 ---
 
 ## API Documentation
 
-FastAPI generates interactive API documentation automatically. In development, visit:
+FastAPI generates interactive API documentation automatically.
 
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Production**: https://babyoverhatrick.onrender.com/docs
+- **Local**: http://localhost:8000/docs
 
 All player-facing endpoints are prefixed with `/api/`. The main API domains are:
 
@@ -158,14 +207,6 @@ pytest --cov=app --cov-report=term-missing
 ```
 
 Test files live in `backend/tests/`. Coverage must remain above 90%.
-
----
-
-## Deployment
-
-> Cloud hosting is not configured yet. A deployment guide will be added once the production environment is live.
-
-The app is designed to run on any platform supporting Python 3.12, Node.js, PostgreSQL 16, Redis 7, and an S3-compatible object store. All connection details are environment variables — see `.env.example`.
 
 ---
 

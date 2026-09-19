@@ -10,6 +10,14 @@ This file is the primary context document for Claude Code agents working on this
 
 The target audience is cricket fans who want bite-sized, social trivia. The Instagram presence is at https://www.instagram.com/babyoverhattrick.
 
+**Live URLs**
+
+| | URL |
+|---|---|
+| Frontend (Vercel) | https://babyoverhatrick-pink.vercel.app |
+| Backend (Render) | https://babyoverhatrick.onrender.com |
+| Admin panel | https://babyoverhatrick-pink.vercel.app/admin |
+
 ---
 
 ## Current State
@@ -24,7 +32,8 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 - **Daily challenge** — dedicated endpoint; question set rotates daily.
 - **Admin CMS** — HTTP Basic Auth-protected `/admin` route in the frontend and SQLAdmin at the backend `/admin` endpoint. Admins can manage question sets, cricketers, and questions (add, edit, delete).
 - **Auth** — Clerk (JWT RS256) for players. HTTP Basic Auth (timing-safe comparison) for the admin content API.
-- **Object storage** — MinIO (local dev). S3-compatible client; swap endpoint and credentials for any S3-compatible service in production. UUID filenames for images prevent answer inference from URLs.
+- **Object storage** — Cloudinary (production). MinIO (local dev, S3-compatible). The `storage_provider` env var switches between them — no code changes needed.
+- **Deployment** — fully live. Backend on Render, frontend on Vercel. See the Deployment section below.
 
 ### Stubs / not yet implemented
 
@@ -32,6 +41,26 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 - Streaks — the concept exists but there is no API endpoint yet.
 - Phase 2 — multiplayer (not started).
 - Phase 3 — broader platform features (not started).
+- CI/CD pipeline — GitHub Actions not yet configured. See the Forward Direction section.
+
+---
+
+## Branching Strategy
+
+| Branch | Purpose | Triggers deploy? |
+|---|---|---|
+| `main` | Production — always deployable | ✅ Vercel (production URL) + Render auto-deploy |
+| `dev` | Integration — work branches merge here first | Vercel preview deployment only |
+| `feat/*`, `fix/*`, `chore/*` | Individual tasks — branch off `dev` | Vercel preview only |
+
+**Workflow:**
+1. Branch off `dev`: `git checkout -b feat/my-thing dev`
+2. PR → `dev` for review
+3. Release PR: `dev` → `main` triggers production deploy on both platforms
+
+**What happens on each push:**
+- Push to `main` → Vercel production URL updates + Render redeploys backend
+- Push to `dev` or any other branch → Vercel creates a throwaway preview URL (does NOT update production); Render ignores it (only watches `main`)
 
 ---
 
@@ -42,11 +71,11 @@ The target audience is cricket fans who want bite-sized, social trivia. The Inst
 | Concern | Technology |
 |---|---|
 | Framework | FastAPI (Python 3.12) |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 (Neon in production, Docker locally) |
 | ORM | SQLAlchemy (sync) |
 | Migrations | Alembic |
-| Cache / sessions | Redis 7 |
-| Object storage | MinIO (local dev, S3-compatible) |
+| Cache / sessions | Redis 7 (Upstash in production, Docker locally) |
+| Object storage | Cloudinary (production) / MinIO (local dev) |
 | Auth | Clerk JWT RS256 dependency + HTTP Basic Auth for admin |
 | Config | pydantic-settings (reads from `.env`) |
 | Tests | pytest + pytest-cov |
@@ -56,6 +85,20 @@ Connection pool management with async SQLAlchemy adds significant complexity (pa
 
 **Why Clerk for auth instead of custom JWT?**
 Clerk handles token rotation, JWKS endpoint, device sessions, and social login out of the box. Rolling a custom JWT system would add maintenance burden with no benefit at this stage. The backend validates Clerk-issued RS256 JWTs via the JWKS URL. `DEV_BYPASS_AUTH=true` skips Clerk validation locally.
+
+**Why Neon for the database (not Render Postgres)?**
+Render's free Postgres expires after 90 days. Neon's free tier is permanent (0.5 GB, PostgreSQL 16). Neon is also serverless — it scales to zero and back up instantly.
+
+**Why Upstash for Redis (not Render Redis)?**
+Same reason: Render's free Redis expires after 90 days. Upstash's free tier is permanent (10,000 commands/day, 256 MB). Upstash requires TLS — use `rediss://` (double-s) in `REDIS_URL`.
+
+**Why Cloudinary for image storage (not S3/MinIO in production)?**
+Cloudflare R2 (original plan) moved to a paid model. Cloudinary has a generous permanent free tier (25 GB storage, 25 GB bandwidth/month) and a simple upload API that requires no bucket configuration. The storage module abstracts both providers behind the same interface — switching to S3-compatible storage only requires changing `STORAGE_PROVIDER` and the relevant env vars; no code changes needed.
+
+**Storage provider abstraction**
+`backend/app/core/storage.py` exposes three functions: `upload_bytes()`, `public_url()`, `ensure_bucket_exists()`. Both providers implement the same interface:
+- `STORAGE_PROVIDER=s3` → uses boto3; works with MinIO, AWS S3, Cloudflare R2, Backblaze B2
+- `STORAGE_PROVIDER=cloudinary` → uses Cloudinary SDK; `upload_bytes()` returns the full CDN URL, which is stored in the DB as `image_url`; `public_url(key)` returns `key` unchanged (it is already the URL)
 
 **Anti-cheat design**
 - Answers are stored only in the database. They are never included in any API response that the client receives before submission.
@@ -79,6 +122,9 @@ Multi-word names are scrambled word-by-word, with a space sentinel character mar
 | Styling | Tailwind v4 |
 | Components | shadcn/ui + lucide-react |
 
+**SPA routing on Vercel**
+`frontend/vercel.json` rewrites all routes to `index.html` so that direct navigation to `/admin`, `/games`, etc. works. Without this, Vercel returns 404 for any route that doesn't correspond to a real file.
+
 ### Infrastructure (local dev)
 
 All services run via Docker Compose:
@@ -97,6 +143,7 @@ All services run via Docker Compose:
 ```
 babyoverhatrick/
 ├── backend/
+│   ├── .python-version         # Pins Python 3.12 for Render (prevents default to 3.14+).
 │   ├── alembic/                # DB migration scripts and env.py. Run via `python -m alembic`.
 │   ├── app/
 │   │   ├── main.py             # FastAPI app factory, middleware, router registration.
@@ -106,7 +153,7 @@ babyoverhatrick/
 │   │   │   ├── config.py       # pydantic-settings Settings class. All env vars land here.
 │   │   │   ├── db.py           # SQLAlchemy engine + session factory + get_db dependency.
 │   │   │   ├── redis.py        # Redis client factory.
-│   │   │   └── storage.py      # S3-compatible storage client.
+│   │   │   └── storage.py      # Storage abstraction: Cloudinary or S3-compatible (MinIO/R2/B2/S3).
 │   │   ├── daily_challenge/    # Daily challenge selection logic.
 │   │   ├── models/             # SQLAlchemy ORM models (Cricketer, Question, Session, Answer, …).
 │   │   ├── routers/            # One file per API domain:
@@ -123,16 +170,19 @@ babyoverhatrick/
 │   └── requirements.txt
 ├── .claude/agents/             # Claude Code skill definitions (e.g. add-game.md).
 ├── frontend/
+│   ├── vercel.json             # Rewrites all routes to index.html for SPA routing on Vercel.
 │   └── src/
 │       ├── components/         # Shared UI components:
-│       │   ├── BrandHeader     # Top navigation / logo.
-│       │   ├── BottomNav       # Mobile bottom navigation bar.
+│       │   ├── BrandHeader     # Page-level logo header (mobile only — hidden on desktop).
+│       │   ├── BottomNav       # Bottom tab bar (mobile) / unified top nav (desktop: logo + nav + auth).
 │       │   ├── ResultScreen    # End-of-game result display.
 │       │   └── SignInSheet     # Clerk sign-in drawer/sheet.
 │       ├── lib/
 │       │   ├── api.ts          # All API call functions + TypeScript types. Add new calls here.
+│       │   ├── auth.ts         # Clerk auth header helper (buildAuthHeaders).
 │       │   ├── config.ts       # Frontend config constants (game settings, endpoints).
-│       │   └── game-data.ts    # Static game metadata (display names, descriptions, icons).
+│       │   ├── game-data.ts    # Static game metadata (display names, descriptions, icons).
+│       │   └── utils.ts        # shadcn/ui cn() helper.
 │       └── routes/             # File-based routes (TanStack Router). One file = one route.
 │           ├── index.tsx       # /
 │           ├── games.tsx       # /games
@@ -158,22 +208,29 @@ All variables are consumed by `backend/app/core/config.py` (backend) or by Vite 
 
 | Variable | Layer | Purpose |
 |---|---|---|
-| `DATABASE_URL` | Backend | PostgreSQL connection string (`postgresql://...`) |
-| `REDIS_URL` | Backend | Redis connection string (`redis://...`) |
-| `STORAGE_ENDPOINT` | Backend | S3-compatible object storage endpoint URL |
+| `DATABASE_URL` | Backend | PostgreSQL connection string |
+| `REDIS_URL` | Backend | Redis connection string — use `rediss://` (TLS) for Upstash |
+| `STORAGE_PROVIDER` | Backend | `s3` (default, MinIO/R2/B2/AWS) or `cloudinary` |
+| `STORAGE_ENDPOINT` | Backend | S3-compatible endpoint URL (used when `STORAGE_PROVIDER=s3`) |
 | `STORAGE_ACCESS_KEY` | Backend | S3 access key |
 | `STORAGE_SECRET_KEY` | Backend | S3 secret key |
-| `STORAGE_BUCKET` | Backend | S3 bucket name for cricketer images |
+| `STORAGE_BUCKET` | Backend | S3 bucket name |
+| `STORAGE_PUBLIC_URL` | Backend | Public base URL for serving stored images (S3 only) |
+| `CLOUDINARY_CLOUD_NAME` | Backend | Cloudinary cloud name (used when `STORAGE_PROVIDER=cloudinary`) |
+| `CLOUDINARY_API_KEY` | Backend | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Backend | Cloudinary API secret |
 | `CLERK_SECRET_KEY` | Backend | Clerk server-side secret for token verification |
 | `CLERK_JWKS_URL` | Backend | URL to Clerk JWKS endpoint for RS256 validation |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Frontend | Clerk publishable key (embedded in client bundle) |
+| `VITE_API_URL` | Frontend | Backend API base URL (e.g. `https://babyoverhatrick.onrender.com`) |
 | `ADMIN_USERNAME` | Backend | HTTP Basic Auth username for admin endpoints |
 | `ADMIN_PASSWORD` | Backend | HTTP Basic Auth password for admin endpoints |
-| `DEV_BYPASS_AUTH` | Backend | Set `true` to skip Clerk JWT validation in local dev |
+| `DEV_BYPASS_AUTH` | Backend | Set `true` to skip Clerk JWT validation in local dev — **never `true` in production** |
 | `FUZZY_MATCH_THRESHOLD` | Backend | Levenshtein distance threshold for answer fuzzy matching |
 | `QUESTIONS_PER_SESSION` | Backend | Number of questions served per game session |
+| `ALLOWED_ORIGINS` | Backend | JSON array of allowed CORS origins, e.g. `["https://example.vercel.app"]` |
 
-**Never commit `.env` to the repository. It is in `.gitignore`.**
+**Never commit `.env` to the repository. It is in `.gitignore`. Files matching `*.env` are also gitignored (e.g. `render.env`, `vercel.env`).**
 
 ---
 
@@ -181,8 +238,8 @@ All variables are consumed by `backend/app/core/config.py` (backend) or by Vite 
 
 | File | Reason |
 |---|---|
-| `frontend/src/routeTree.gen.ts` | Auto-generated by TanStack Router from files in `src/routes/`. Re-generated on every `pnpm dev` / `pnpm build` run. Manual edits will be overwritten. |
-| `.venv/` | Python virtual environment. Managed by pip, never edited manually. |
+| `frontend/src/routeTree.gen.ts` | Auto-generated by TanStack Router. Regenerated on every `pnpm dev` / `pnpm build`. |
+| `.venv/` | Python virtual environment. Managed by pip. |
 | `alembic/versions/` | Do not edit existing migration files. Add new ones with `alembic revision --autogenerate`. |
 
 ---
@@ -227,10 +284,61 @@ Test files live in `backend/tests/`. Coverage must remain above 90%. Every new b
 
 ## Deployment
 
-> **Not yet configured.** Cloud hosting and object storage have not been set up.
-> A deployment guide will be added to the repo once the production environment is live.
+### Current production setup
 
-The application is designed to run on any platform that supports Python 3.12 (backend), a Node.js build step (frontend), PostgreSQL 16, Redis 7, and an S3-compatible object storage endpoint. All connection details are read from environment variables — see `.env.example` for the full list.
+| Concern | Service | Notes |
+|---|---|---|
+| Frontend | Vercel | Auto-deploys from `main`. Root directory: `frontend`. |
+| Backend | Render | Auto-deploys from `main`. Root directory: `backend`. Python 3.12 (pinned via `backend/.python-version`). |
+| Database | Neon | PostgreSQL 16. Run `python -m alembic upgrade head` after first deploy and after any migration. |
+| Cache | Upstash | Redis. Use `rediss://` URL (TLS required). |
+| Images | Cloudinary | Set `STORAGE_PROVIDER=cloudinary` and the three `CLOUDINARY_*` env vars. |
+
+### Render start command
+
+```
+python -m alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+Migrations run automatically on every deploy. No shell access needed.
+
+### Running a migration
+
+New migrations are created locally and pushed; Render applies them on deploy.
+
+```bash
+# 1. Make your model change
+# 2. Generate the migration
+cd backend
+python -m alembic revision --autogenerate -m "describe the change"
+# 3. Test it locally
+python -m alembic upgrade head
+# 4. Commit and push — Render runs it on deploy
+```
+
+### Seeding the production database
+
+Since Render's free tier has no shell access, the seed script runs locally against the production database. The `.env` file contains the Neon connection string, so this works out of the box:
+
+```bash
+cd backend
+python -m app.scripts.seed
+```
+
+---
+
+## Forward Direction — CI/CD (not yet implemented)
+
+The goal is a GitHub Actions pipeline that:
+1. **On PR to `dev`** — runs the full test suite (`pytest --cov`). Blocks merge if tests fail or coverage drops below 90%.
+2. **On merge to `main`** — runs tests again, then triggers a Render deploy via deploy hook. Vercel deploys automatically via its GitHub integration (no action needed).
+
+Planned file: `.github/workflows/ci.yml`
+
+What will need to change when this is set up:
+- **Render**: disable "Auto-Deploy" in service settings and generate a Deploy Hook URL instead (used by the GitHub Action).
+- **Vercel**: no change needed — it deploys automatically on push to `main`.
+- **GitHub**: add `RENDER_DEPLOY_HOOK` as a repository secret.
 
 ---
 
@@ -240,9 +348,9 @@ The application is designed to run on any platform that supports Python 3.12 (ba
 |---|---|---|
 | Share card image generation | `backend/app/share_cards/` | Stub exists, Pillow logic not implemented |
 | Streaks | `backend/app/routers/` | No endpoint yet; model design TBD |
+| CI/CD pipeline | `.github/workflows/` | Design documented above; not yet implemented |
 | Phase 2 — Multiplayer | — | Not started |
 | Phase 3 — Platform features | — | Not started |
-| CI/CD pipeline | `.github/workflows/` | Not set up |
 
 ---
 
