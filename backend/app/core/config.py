@@ -21,13 +21,23 @@ class Settings(BaseSettings):
     # ── Redis ─────────────────────────────────────────────────────────────────
     redis_url: str = "redis://:localpassword@localhost:6379"
 
-    # ── Object storage (MinIO locally, R2 in production) ─────────────────────
+    # ── Object storage ────────────────────────────────────────────────────────
+    # storage_provider: "s3" (default — works with MinIO, R2, B2, AWS S3, etc.)
+    #                   "cloudinary" (set cloudinary_* vars below)
+    storage_provider: str = "s3"
+
+    # S3-compatible settings (used when storage_provider = "s3")
     storage_endpoint: str = "http://localhost:9000"
     storage_access_key: str = "minioadmin"
     storage_secret_key: str = "minioadmin"
     storage_bucket: str = "gameplatform-assets"
     storage_public_url: str = "http://localhost:9000/gameplatform-assets"
     storage_region: str = "us-east-1"
+
+    # Cloudinary settings (used when storage_provider = "cloudinary")
+    cloudinary_cloud_name: str = ""
+    cloudinary_api_key: str = ""
+    cloudinary_api_secret: str = ""
 
     # ── Auth — Clerk ──────────────────────────────────────────────────────────
     clerk_secret_key: str = ""
