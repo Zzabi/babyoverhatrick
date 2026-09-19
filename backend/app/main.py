@@ -50,13 +50,10 @@ app = FastAPI(
 # Session middleware required for SQLAdmin auth
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
-# If allowed_origins contains "*", use wildcard (no credentials — auth is via
-# Authorization headers, not cookies, so this is safe for a public API).
-_wildcard = settings.allowed_origins == ["*"] or "*" in settings.allowed_origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if _wildcard else settings.allowed_origins,
-    allow_credentials=not _wildcard,
+    allow_origins=settings.allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
